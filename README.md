@@ -32,9 +32,9 @@ graph TD
     style F fill:#FBBC05,stroke:#333,stroke-width:2px,color:black
 ```
 
-1. **Popup UI (`popup.html` & `popup.js`)**: The control panel where users securely store their Gemini API key and trigger the auto-answering process.
-2. **Content Script (`content.js`)**: Injected directly into the `https://docs.google.com/forms/*` page. It scrapes the DOM to extract questions and option labels, fuzzy-matches the API response to the DOM nodes, and simulates the click events.
-3. **Gemini Service (`geminiService.js`)**: Takes the scraped questions, batches them into a single, highly-optimized prompt, and returns a verified JSON object of the correct answers.
+1. **Popup UI (`popup.html` & `popup.js`)**: A strict Black & White, Apple HIG-compliant control panel where users securely store their Gemini API key. Uses `chrome.storage.local` to persist the working state even if the popup is closed.
+2. **Content Script (`content.js`)**: Injected directly into the `https://docs.google.com/forms/*` page. It grabs the full page text, passes it to the Gemini service, and later fuzzy-matches the API JSON response to the DOM nodes to simulate click events.
+3. **Gemini Service (`geminiService.js`)**: Uses a robust chunking algorithm to split large forms into 150-line blocks. It sequentially calls `gemini-2.0-flash-exp` (falling back to other models on 429) to safely generate JSON without hitting token/rate limits.
 
 ## Installation (Developer Mode)
 
@@ -60,11 +60,11 @@ Since this extension is not currently on the Chrome Web Store, you can install i
 6. **Clear**: If you want to reset everything, click the **"Clear Selections"** button in the popup to uncheck all answers.
 
 ## ⚙️ How it Works under the hood
-- **Scraping**: It targets `div[role="listitem"]` to isolate questions, and reads labels from `div[role="radio"]` and `div[role="checkbox"]`.
-- **Fuzzy Matching**: Gemini sometimes returns slightly modified text. The application uses a scoring system to fuzzy-match the returned exact answer with the closest DOM element text.
-- **Visuals**: A custom `styles.css` is injected to provide the `.gemini-highlight-success` green glowing border so users know what was automated.
+- **Scraping**: Instead of parsing DOM trees manually, it pulls the `innerText` of the entire form area and splits it into manageable 150-line chunks for the LLM to parse.
+- **Fuzzy Matching**: Gemini sometimes returns slightly modified text. The application uses a scoring system to fuzzy-match the returned exact answer with the closest DOM element text (`aria-label` or `data-value`).
+- **Resilient Polling**: The popup queries `chrome.storage.local` every 1000ms. You can close the popup while it works and reopen it to see the exact current status.
 
 ## Notes & Edge Cases
 - Currently supports standard single-choice (radio) and multiple-choice (checkbox) options.
 - Dropdowns and short/long answer text inputs are ignored in the current version.
-- Extremely long forms may hit the Gemini API rate limits/token limits. The prompt is highly optimized to minimize token usage by requesting strictly formatted JSON output.
+- Exceptionally long forms are protected from `429` (Rate Limit) errors via the internal chunking system and automatic model roll-overs (`gemini-2.0-flash-exp` -> `lite` -> `flash`).

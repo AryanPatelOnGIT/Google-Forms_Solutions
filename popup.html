@@ -1,93 +1,231 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
     <meta charset="utf-8">
     <title>Gemini Forms Helper</title>
     <style>
+        /* 
+      Apple HIG B&W Aesthetic 
+      - SF Pro-like typography
+      - Strict Black & White 
+      - Soft rounded corners (16px and 10px) 
+      - Clean lines, no gradients
+    */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        }
+
         body {
-            width: 300px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            padding: 16px;
-            background-color: #f8f9fa;
-            color: #202124;
+            width: 320px;
+            background-color: #000000;
+            color: #FFFFFF;
+            padding: 24px;
+            -webkit-font-smoothing: antialiased;
         }
 
-        h2 {
+        .container {
+            background: #1C1C1E;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .icon {
+            width: 36px;
+            height: 36px;
+            background: #FFFFFF;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon svg {
+            width: 20px;
+            height: 20px;
+            fill: #000000;
+        }
+
+        .title h1 {
             font-size: 16px;
-            margin-top: 0;
-            margin-bottom: 12px;
-            color: #1a73e8;
+            font-weight: 600;
+            letter-spacing: -0.4px;
+            color: #FFFFFF;
         }
 
-        .form-group {
-            margin-bottom: 12px;
+        .title p {
+            font-size: 12px;
+            color: #8E8E93;
+            margin-top: 2px;
         }
 
-        label {
+        /* Inputs */
+        .field {
+            margin-bottom: 20px;
+        }
+
+        .field label {
             display: block;
             font-size: 12px;
-            font-weight: bold;
-            margin-bottom: 4px;
+            font-weight: 500;
+            color: #8E8E93;
+            margin-bottom: 8px;
         }
 
-        input[type="password"] {
+        .field input {
             width: 100%;
-            padding: 8px;
-            box-sizing: border-box;
-            border: 1px solid #dadce0;
-            border-radius: 4px;
+            background: #2C2C2E;
+            color: #FFFFFF;
+            border: 1px solid #3A3A3C;
+            border-radius: 10px;
+            padding: 12px 14px;
             font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .field input:focus {
+            border-color: #FFFFFF;
+        }
+
+        .field input::placeholder {
+            color: #636366;
+        }
+
+        /* Buttons */
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
 
         button {
             width: 100%;
-            padding: 10px;
-            background-color: #1a73e8;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-size: 14px;
-            font-weight: bold;
+            padding: 14px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
             cursor: pointer;
-            margin-bottom: 8px;
+            border: none;
+            transition: transform 0.1s, opacity 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
-        button:hover {
-            background-color: #1557b0;
+        button:active {
+            transform: scale(0.97);
         }
 
-        button.secondary {
-            background-color: white;
-            color: #5f6368;
-            border: 1px solid #dadce0;
+        .btn-primary {
+            background: #FFFFFF;
+            color: #000000;
         }
 
-        button.secondary:hover {
-            background-color: #f1f3f4;
+        .btn-secondary {
+            background: #2C2C2E;
+            color: #FFFFFF;
         }
 
-        #status {
-            font-size: 12px;
-            color: #5f6368;
-            margin-top: 12px;
-            text-align: center;
+        /* Status Bar */
+        .status {
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid #3A3A3C;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #8E8E93;
+            margin-top: 4px;
+            flex-shrink: 0;
+        }
+
+        .dot.working {
+            background: #FFFFFF;
+            animation: breathe 2s infinite ease-in-out;
+        }
+
+        .dot.error {
+            background: #FF453A;
+        }
+
+        .dot.done {
+            background: #32D74B;
+        }
+
+        @keyframes breathe {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(0.8);
+            }
+        }
+
+        #statusText {
+            font-size: 13px;
+            color: #AEAEB2;
+            line-height: 1.4;
+            flex-grow: 1;
         }
     </style>
 </head>
 
 <body>
-    <h2>Gemini Forms Helper</h2>
 
-    <div class="form-group">
-        <label for="apiKey">Gemini API Key</label>
-        <input type="password" id="apiKey" placeholder="Enter API Key" />
+    <div class="container">
+        <div class="header">
+            <div class="icon">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor"
+                        stroke-width="2" stroke-linejoin="round" fill="none" />
+                </svg>
+            </div>
+            <div class="title">
+                <h1>Gemini Forms</h1>
+                <p>AI Multiple Choice Solver</p>
+            </div>
+        </div>
+
+        <div class="field">
+            <label>API KEY</label>
+            <input type="password" id="apiKey" placeholder="Enter API Key..." />
+        </div>
+
+        <div class="btn-group">
+            <button class="btn-primary" id="answerBtn">Auto-Answer Form</button>
+            <button class="btn-secondary" id="clearBtn">Clear Selections</button>
+        </div>
+
+        <div class="status">
+            <div class="dot" id="dot"></div>
+            <span id="statusText">Ready</span>
+        </div>
     </div>
-
-    <button id="answerBtn">Answer Form</button>
-    <button id="clearBtn" class="secondary">Clear Selections</button>
-
-    <div id="status">Idle</div>
 
     <script src="popup.js"></script>
 </body>
