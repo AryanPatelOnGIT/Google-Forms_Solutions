@@ -1,0 +1,5 @@
+{
+  "name": "FormGenius",
+  "description": "AI-powered Google Forms assistant that analyzes questions and suggests accurate answers.",
+  "requestFramePermissions": []
+}
