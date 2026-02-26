@@ -40,6 +40,9 @@ document.addEventListener('DOMContentLoaded', () => {
   answerBtn.addEventListener('click', async () => {
     if (!apiKey.value) { setUI('Error: API key required'); return; }
 
+    // Explicitly strongly save the API key on click to prevent it from forgetting
+    chrome.storage.local.set({ geminiApiKey: apiKey.value });
+
     setUI('Starting...');
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 

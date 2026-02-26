@@ -1,4 +1,4 @@
-// geminiService.js - API integration (Robust chunking & fallbacks)
+// geminiService.js - API integration (Structured chunking)
 
 async function getGeminiApiKey() {
     return new Promise((resolve) => {
@@ -18,10 +18,10 @@ function setStatus(msg) {
 }
 
 const MODELS = [
-    "gemini-2.0-flash-exp",   // Has higher limits
-    "gemini-2.0-flash-lite",  // Fallback 1
-    "gemini-2.5-flash",       // Fallback 2
-    "gemini-1.5-flash"        // Fallback 3
+    "gemini-2.0-flash-exp",
+    "gemini-2.0-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-1.5-flash"
 ];
 
 async function callGeminiOnce(prompt, apiKey, model) {
@@ -60,7 +60,7 @@ async function callGeminiRobust(prompt, apiKey, attemptIndex = 1) {
             if (result.data) return result.data;
             if (result.rateLimited) {
                 console.warn(`[${model}] 429 rate limit.`);
-                await sleep(1000); // Tiny pause before next model
+                await sleep(500); // Tiny pause before next model
                 continue;
             }
             if (result.notFound) continue;
@@ -73,7 +73,6 @@ async function callGeminiRobust(prompt, apiKey, attemptIndex = 1) {
         }
     }
 
-    // All models 429'd. Exponential backoff and retry.
     if (attemptIndex <= 4) {
         const waitSec = 10 * Math.pow(2, attemptIndex - 1); // 10s, 20s, 40s, 80s
         setStatus(`Rate limited. Waiting ${waitSec}s...`);
@@ -86,7 +85,7 @@ async function callGeminiRobust(prompt, apiKey, attemptIndex = 1) {
 }
 
 // Global entry
-window.handleGeminiAnswers = async function (pageText) {
+window.handleGeminiAnswers = async function (questionsArray) {
     try {
         const apiKey = await getGeminiApiKey();
         if (!apiKey) {
@@ -94,44 +93,40 @@ window.handleGeminiAnswers = async function (pageText) {
             return;
         }
 
-        setStatus("Chunking form data...");
+        setStatus(`Analyzing ${questionsArray.length} questions...`);
 
-        // --- CHUNKING LOGIC FOR LARGE FORMS ---
-        // If the form text is enormous, we split it so Gemini doesn't choke.
-        // Google Forms usually separates questions by newlines heavily.
-        const lines = pageText.split('\n');
-        const CHUNK_SIZE = 150; // process 150 lines at a time
+        // Chunk questions (send 10 at a time to prevent token limits)
+        const CHUNK_SIZE = 10;
         let allAnswers = [];
 
-        const totalChunks = Math.ceil(lines.length / CHUNK_SIZE);
+        const totalChunks = Math.ceil(questionsArray.length / CHUNK_SIZE);
 
         for (let i = 0; i < totalChunks; i++) {
             setStatus(`Sending chunk ${i + 1} of ${totalChunks}...`);
-            const chunkText = lines.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE).join('\n');
+            const chunkQuestions = questionsArray.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
 
-            // Skip empty chunks
-            if (chunkText.trim().length < 10) continue;
+            const prompt = `You are a strict test solver. I am providing a JSON array of questions.
+Answer each question appropriately. 
+- If type is "radio", pick EXACTLY ONE answer from options.
+- If type is "checkbox", pick ALL correct answers from options.
+- If type is "text", provide a brief, accurate written answer.
 
-            const prompt = `You are a strict test solver. Read this form section.
-Identify ONLY the multiple choice questions (radio buttons / checkboxes).
-Ignore text inputs, dropdowns, generic text.
-Return ONLY a JSON array. 
-Format: [{"question": "<first 5-10 words of the question>", "answers": ["<exact option text>"]}]
-Match option text EXACTLY.
+CRITICAL: "answer" MUST ALWAYS BE AN ARRAY OF STRINGS, even if there is only one choice. Never return a single string.
+Return ONLY a JSON array with this format:
+[{"id": <match the id exactly>, "answer": ["<exact string 1>", "<exact string 2>"] }]
 
---- TEXT START ---
-${chunkText}
---- TEXT END ---`;
+--- QUESTIONS ---
+${JSON.stringify(chunkQuestions, null, 2)}
+--- END QUESTIONS ---`;
 
             const chunkAnswers = await callGeminiRobust(prompt, apiKey);
             if (Array.isArray(chunkAnswers)) {
                 allAnswers = allAnswers.concat(chunkAnswers);
             }
 
-            // Small pause between chunks to respect rate limits
             if (i < totalChunks - 1) {
                 setStatus(`Pause before chunk ${i + 2}...`);
-                await sleep(2500);
+                await sleep(2000);
             }
         }
 

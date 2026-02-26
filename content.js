@@ -1,71 +1,141 @@
-// content.js — Scraper + DOM interaction
+// content.js — Structured Scraper + Applicator
 
 console.log("Gemini Forms Helper: loaded.");
 
-// Grab full text content of the form page
-function getFullPageText() {
-    // Get all visible text from the form
-    const formArea = document.querySelector('div[role="list"]') || document.body;
-    return formArea.innerText;
+// Clean up google forms text
+function cleanText(text) {
+    if (!text) return "";
+    return text.replace(/\n|Required|\*/gi, ' ').replace(/\s+/g, ' ').trim();
 }
 
-// Find and click the right options based on Gemini's answers
-window.applyAnswersToForm = function (answersArray) {
-    if (!Array.isArray(answersArray)) {
-        console.error("Expected array, got:", answersArray);
-        return;
-    }
-
-    let applied = 0;
+function scrapeFormStructured() {
+    const questions = [];
     const containers = document.querySelectorAll('div[role="listitem"]');
 
+    containers.forEach((container, index) => {
+        const heading = container.querySelector('div[role="heading"]');
+        if (!heading) return; // Not a question
+
+        const qText = cleanText(heading.innerText);
+        if (qText.length < 5) return;
+
+        // Tag the DOM element so we can find it later without fuzzy matching!
+        container.dataset.geminiId = index;
+
+        // Detect type
+        const radios = container.querySelectorAll('div[role="radio"]');
+        const checkboxes = container.querySelectorAll('div[role="checkbox"]');
+        const textInputs = container.querySelectorAll('input[type="text"], textarea');
+
+        function getOptionText(el) {
+            return cleanText(el.getAttribute('data-value') || el.getAttribute('aria-label') || el.innerText);
+        }
+
+        let type = 'unknown';
+        let options = [];
+
+        if (radios.length > 0) {
+            type = 'radio';
+            options = Array.from(radios).map(getOptionText);
+        } else if (checkboxes.length > 0) {
+            type = 'checkbox';
+            options = Array.from(checkboxes).map(getOptionText);
+        } else if (textInputs.length > 0) {
+            type = 'text';
+        }
+
+        if (type !== 'unknown') {
+            questions.push({
+                id: index,
+                type: type,
+                question: qText,
+                options: options
+            });
+        }
+    });
+
+    return questions;
+}
+
+// Find and click the right options based on explicit IDs
+window.applyAnswersToForm = function (answersArray) {
+    if (!Array.isArray(answersArray)) return;
+
+    let applied = 0;
+
     answersArray.forEach(ansObj => {
-        const qSnippet = (ansObj.question || "").toLowerCase().trim();
-        const correctAnswers = ansObj.answers || [];
-        if (!qSnippet || correctAnswers.length === 0) return;
+        const id = ansObj.id;
+        const answer = ansObj.answer; // string or array of strings
+        if (id === undefined || !answer) return;
 
-        // Find matching question container
-        for (const container of containers) {
-            const heading = container.querySelector('div[role="heading"]');
-            if (!heading) continue;
+        const container = document.querySelector(`div[role="listitem"][data-gemini-id="${id}"]`);
+        if (!container) return;
 
-            const headingText = heading.innerText.replace(/\*/g, '').toLowerCase().trim();
-            if (!headingText.includes(qSnippet) && !qSnippet.includes(headingText.substring(0, 20))) continue;
+        // Apply Answer
+        const radios = container.querySelectorAll('div[role="radio"]');
+        const checkboxes = container.querySelectorAll('div[role="checkbox"]');
+        const textInputs = container.querySelectorAll('input[type="text"], textarea');
 
-            // Found the question — now click options
-            const radios = container.querySelectorAll('div[role="radio"]');
-            const checkboxes = container.querySelectorAll('div[role="checkbox"]');
-            const options = radios.length > 0 ? Array.from(radios) : Array.from(checkboxes);
+        const isRadio = radios.length > 0;
+        const isCheckbox = checkboxes.length > 0;
+        const isText = textInputs.length > 0;
 
-            correctAnswers.forEach(correctText => {
-                const target = correctText.toLowerCase().trim();
+        if (isText) {
+            const input = textInputs[0];
+            // Simulate typing for Google Forms React/Angular inputs
+            input.value = Array.isArray(answer) ? answer.join(', ') : answer;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            input.classList.add('gemini-highlight-success');
+            applied++;
+        } else if (isRadio || isCheckbox) {
+            const options = isRadio ? Array.from(radios) : Array.from(checkboxes);
+
+            let targetAnswers = [];
+            if (Array.isArray(answer)) {
+                targetAnswers = answer;
+            } else if (typeof answer === 'string') {
+                const exactMatch = options.find(el => cleanText(el.getAttribute('data-value') || el.getAttribute('aria-label') || el.innerText).toLowerCase() === cleanText(answer).toLowerCase());
+                if (!exactMatch && isCheckbox && answer.includes(',')) {
+                    targetAnswers = answer.split(',').map(s => s.trim());
+                } else {
+                    targetAnswers = [answer];
+                }
+            } else {
+                targetAnswers = [String(answer)];
+            }
+
+            let clickedForThisQuestion = 0;
+
+            function getOptionTextStr(el) {
+                return cleanText(el.getAttribute('data-value') || el.getAttribute('aria-label') || el.innerText).toLowerCase();
+            }
+
+            targetAnswers.forEach(targetRaw => {
+                if (isRadio && clickedForThisQuestion > 0) return; // Only 1 for radio
+
+                const target = cleanText(targetRaw).toLowerCase();
                 let bestEl = null;
-                let bestScore = 0;
 
-                options.forEach(el => {
-                    const optText = (
-                        el.getAttribute('data-value') ||
-                        el.getAttribute('aria-label') ||
-                        el.innerText || ""
-                    ).toLowerCase().trim();
+                // Exact match first
+                bestEl = options.find(el => getOptionTextStr(el) === target);
 
-                    if (optText === target) {
-                        bestEl = el; bestScore = 100;
-                    } else if (bestScore < 100 && optText.includes(target) && target.length > 2) {
-                        bestEl = el; bestScore = 60;
-                    } else if (bestScore < 60 && target.includes(optText) && optText.length > 2) {
-                        bestEl = el; bestScore = 40;
-                    }
-                });
+                // Fallback: partial match
+                if (!bestEl) {
+                    bestEl = options.find(el => {
+                        const opt = getOptionTextStr(el);
+                        return opt.includes(target) || target.includes(opt);
+                    });
+                }
 
                 if (bestEl && bestEl.getAttribute('aria-checked') !== 'true') {
+                    if (isRadio) options.forEach(o => o.classList.remove('gemini-highlight-success'));
                     bestEl.click();
                     bestEl.classList.add('gemini-highlight-success');
+                    clickedForThisQuestion++;
                     applied++;
                 }
             });
-
-            break; // Found the question, move on
         }
     });
 
@@ -77,24 +147,30 @@ function clearSelections() {
     document.querySelectorAll('div[role="radio"][aria-checked="true"], div[role="checkbox"][aria-checked="true"]')
         .forEach(el => el.click());
     document.querySelectorAll('.gemini-highlight-success')
-        .forEach(el => el.classList.remove('gemini-highlight-success'));
+        .forEach(el => {
+            el.classList.remove('gemini-highlight-success');
+            if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                el.value = '';
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        });
 }
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "ANSWER_FORM") {
-        const pageText = getFullPageText();
-        console.log("Page text length:", pageText.length);
+        const questions = scrapeFormStructured();
+        console.log("Scraped questions:", questions.length);
 
-        if (pageText.length < 20) {
-            chrome.storage.local.set({ geminiStatus: "Error: Could not read form." });
-            try { chrome.runtime.sendMessage({ action: "UPDATE_STATUS", status: "Error: Could not read form." }); } catch (e) { }
+        if (questions.length === 0) {
+            chrome.storage.local.set({ geminiStatus: "Error: No questions found." });
+            try { chrome.runtime.sendMessage({ action: "UPDATE_STATUS", status: "Error: No questions found." }); } catch (e) { }
             return;
         }
 
-        // Fire and forget — runs even if popup closes
+        // Send strict structured JSON to background logic
         if (typeof window.handleGeminiAnswers === 'function') {
-            window.handleGeminiAnswers(pageText);
+            window.handleGeminiAnswers(questions);
         }
 
         sendResponse({ success: true });
