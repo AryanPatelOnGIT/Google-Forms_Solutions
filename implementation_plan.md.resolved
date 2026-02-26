@@ -1,0 +1,43 @@
+# AI-Powered Google Forms Auto-Answer Extension
+
+This project will build a Chrome extension to automatically answer Google Forms multiple-choice questions using the Gemini API. The extension will read the questions from the form, send them to Gemini for the correct answers, and then auto-select the determined options on the page.
+
+## Proposed Changes
+
+### Extension setup
+These files set up the basic structure of the extension.
+
+#### [NEW] manifest.json
+Standard Manifest V3 with permissions for `activeTab`, `storage`, and `scripting`. Host permissions set to `https://docs.google.com/forms/*`.
+
+#### [NEW] popup.html
+The UI for the extension containing an API key input, an "Answer Form" button, and a status display.
+
+#### [NEW] popup.js
+Handles user interaction in the popup, saves/loads the API key to/from `chrome.storage.local`, and sends a message to the content script when the "Answer" button is clicked.
+
+#### [NEW] styles.css
+Styling for the popup UI and the visual indicator (highlighting) for auto-selected answers on the form.
+
+### Content Script and Logic
+These files run in the context of the Google Form page and interact with the Gemini API.
+
+#### [NEW] content.js
+The main content script injected into Google Forms. Responsible for:
+1. Scraping the DOM for MCQ questions and options.
+2. Listening for messages from the popup.
+3. Sending scraped data to the Gemini integration service.
+4. Locating and clicking the correct answer elements based on Gemini's response.
+5. Highlighting (or adding visual indicators to) the selected answers.
+6. Handling edge cases like dynamically loaded forms (using `MutationObserver`).
+
+#### [NEW] geminiService.js
+A separate script/module mapping questions to prompts, calling the `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent` endpoint, and returning structured answers.
+
+## Verification Plan
+
+### Manual Verification
+1. **Setup**: Load the extension as unpacked in `chrome://extensions/` by selecting the `c:\Users\Naman Sinha\Desktop\google extension\gemini-forms-helper` directory.
+2. **Testing UI (Phase 1)**: Click the extension icon to verify the popup renders correctly. Enter a dummy API key and verify it saves.
+3. **Scraping (Phase 2)**: Open a sample Google Form with MCQ questions, inspect the background/console logs to ensure `content.js` correctly identifies questions and options.
+4. **Answering (End-to-End)**: Provide a real Gemini API Key, open a Google Form, click "Answer Form", and visually verify that the correct radio/checkboxes are clicked and highlighted.
