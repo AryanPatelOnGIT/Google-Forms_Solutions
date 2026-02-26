@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Gemini Forms Helper</title>
+    <style>
+        body {
+            width: 300px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            padding: 16px;
+            background-color: #f8f9fa;
+            color: #202124;
+        }
+
+        h2 {
+            font-size: 16px;
+            margin-top: 0;
+            margin-bottom: 12px;
+            color: #1a73e8;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        label {
+            display: block;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        input[type="password"] {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #dadce0;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+
+        button:hover {
+            background-color: #1557b0;
+        }
+
+        button.secondary {
+            background-color: white;
+            color: #5f6368;
+            border: 1px solid #dadce0;
+        }
+
+        button.secondary:hover {
+            background-color: #f1f3f4;
+        }
+
+        #status {
+            font-size: 12px;
+            color: #5f6368;
+            margin-top: 12px;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Gemini Forms Helper</h2>
+
+    <div class="form-group">
+        <label for="apiKey">Gemini API Key</label>
+        <input type="password" id="apiKey" placeholder="Enter API Key" />
+    </div>
+
+    <button id="answerBtn">Answer Form</button>
+    <button id="clearBtn" class="secondary">Clear Selections</button>
+
+    <div id="status">Idle</div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>

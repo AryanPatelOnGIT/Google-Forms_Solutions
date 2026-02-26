@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Gemini Forms Helper",
+  "version": "1.0",
+  "description": "AI-Powered Google Forms Auto-Answer",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://docs.google.com/forms/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://docs.google.com/forms/*"],
+      "css": ["styles.css"],
+      "js": ["geminiService.js", "content.js"]
+    }
+  ]
+}
